@@ -1,0 +1,38 @@
+# Environment Variables
+.env
+*.env
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# SQLite Databases
+*.db
+*.db-wal
+*.db-shm
+
+# Logs & Runtime Artifacts
+*.log
+*.jsonl
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Tooling / local
+.claude/
+scratch_*.py

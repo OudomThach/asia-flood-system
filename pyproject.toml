@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asia-flood-system"
+version = "2.0.0"
+description = "Pan-Asian Multi-Hazard & Flash-Flood Early Warning Platform"
+readme = "README.md"
+authors = [
+  { name = "Oudom Thach", email = "oudomthach2000@gmail.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.8.0",
+    "requests>=2.32.0",
+    "httpx>=0.27.0",
+    "starlette>=0.38.0",
+    "python-dotenv>=1.0.0",
+    "pytest>=8.3.0",
+]
+
+[project.scripts]
+asia-flood = "asia_flood_core.main:main"
+asia-demo = "asia_flood_core.run_demo:main"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q"
+pythonpath = ["."]
+testpaths = [
+    "tests",
+]

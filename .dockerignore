@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.git/
+.gitignore
+.pytest_cache/
+*.db
+*.sqlite3
+temp_speckit/
+CSCI841_*.pdf
