@@ -7,6 +7,9 @@ This document describes the system architecture, data flow, domain model, and th
 flash-flood contribution model. All diagrams are [Mermaid](https://mermaid.js.org/) and
 render directly on GitHub.
 
+> **Slide-ready exports:** PNG and SVG renders of every diagram below are in
+> [`docs/diagrams/`](diagrams/) (e.g. `01-system-architecture.svg`).
+
 ---
 
 ## 1. System Architecture (containers & components)

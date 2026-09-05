@@ -67,6 +67,28 @@ BASIN_CATEGORIES = {
 }
 
 
+# ISO-3166 country display names for the browse-by-country picker (Asia-wide).
+COUNTRY_NAMES = {
+    "KH": "Cambodia", "LA": "Laos", "TH": "Thailand", "VN": "Vietnam", "MM": "Myanmar",
+    "MY": "Malaysia", "SG": "Singapore", "BN": "Brunei", "ID": "Indonesia", "PH": "Philippines",
+    "TL": "Timor-Leste", "CN": "China", "JP": "Japan", "KR": "South Korea", "KP": "North Korea",
+    "MN": "Mongolia", "IN": "India", "BD": "Bangladesh", "PK": "Pakistan", "NP": "Nepal",
+    "LK": "Sri Lanka", "BT": "Bhutan", "MV": "Maldives", "AF": "Afghanistan", "KZ": "Kazakhstan",
+    "UZ": "Uzbekistan", "KG": "Kyrgyzstan", "TJ": "Tajikistan", "TM": "Turkmenistan", "IR": "Iran",
+    "IQ": "Iraq", "TR": "Türkiye", "SY": "Syria", "LB": "Lebanon", "JO": "Jordan", "IL": "Israel",
+    "SA": "Saudi Arabia", "YE": "Yemen", "OM": "Oman", "AE": "UAE", "QA": "Qatar", "BH": "Bahrain",
+    "KW": "Kuwait", "GE": "Georgia", "AM": "Armenia", "AZ": "Azerbaijan", "CY": "Cyprus",
+}
+
+
+def country_flag(code: str) -> str:
+    """Return the emoji flag for a 2-letter ISO country code (regional indicators)."""
+    code = (code or "").upper()
+    if len(code) != 2 or not code.isalpha():
+        return "🏳️"
+    return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in code)
+
+
 def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculates great-circle distance between two GPS coordinates in kilometers."""
     r = 6371.0  # Earth radius in kilometers
@@ -182,6 +204,66 @@ class InteractiveTelegramBot:
                 ]
             ]
         }
+
+    def get_countries_keyboard(self, page: int = 0) -> Dict[str, Any]:
+        """Paginated picker of every monitored country (Asia-wide), with station counts."""
+        areas = self.repo.get_all_areas()
+        counts: Dict[str, int] = {}
+        for a in areas:
+            counts[a.country] = counts.get(a.country, 0) + 1
+        # Sort by station count desc, then name
+        codes = sorted(counts.keys(), key=lambda c: (-counts[c], COUNTRY_NAMES.get(c, c)))
+
+        per_page = 12
+        total_pages = max(1, (len(codes) + per_page - 1) // per_page)
+        page = max(0, min(page, total_pages - 1))
+        subset = codes[page * per_page:(page + 1) * per_page]
+
+        buttons, row = [], []
+        for code in subset:
+            label = f"{country_flag(code)} {COUNTRY_NAMES.get(code, code)} ({counts[code]})"
+            row.append({"text": label, "callback_data": f"ctry:{code}:0"})
+            if len(row) == 2:
+                buttons.append(row); row = []
+        if row:
+            buttons.append(row)
+
+        nav = []
+        if page > 0:
+            nav.append({"text": "⬅️ Prev", "callback_data": f"cpage:{page - 1}"})
+        nav.append({"text": f"🌏 {page + 1}/{total_pages}", "callback_data": "noop"})
+        if page < total_pages - 1:
+            nav.append({"text": "Next ➡️", "callback_data": f"cpage:{page + 1}"})
+        buttons.append(nav)
+        buttons.append([{"text": "📍 Share My Location instead", "callback_data": "noop"}])
+        return {"inline_keyboard": buttons}
+
+    def get_country_stations_keyboard(self, code: str, page: int = 0) -> Dict[str, Any]:
+        """Paginated list of the monitoring stations within one country."""
+        stations = [a for a in self.repo.get_all_areas() if a.country == code]
+        per_page = 8
+        total_pages = max(1, (len(stations) + per_page - 1) // per_page)
+        page = max(0, min(page, total_pages - 1))
+        subset = stations[page * per_page:(page + 1) * per_page]
+
+        buttons, row = [], []
+        for a in subset:
+            clean_en = a.name_en.split(" (")[0]
+            row.append({"text": f"📍 {clean_en}", "callback_data": f"loc:{a.area_id}"})
+            if len(row) == 2:
+                buttons.append(row); row = []
+        if row:
+            buttons.append(row)
+
+        nav = []
+        if page > 0:
+            nav.append({"text": "⬅️ Prev", "callback_data": f"cstn:{code}:{page - 1}"})
+        nav.append({"text": f"📄 {page + 1}/{total_pages}", "callback_data": "noop"})
+        if page < total_pages - 1:
+            nav.append({"text": "Next ➡️", "callback_data": f"cstn:{code}:{page + 1}"})
+        buttons.append(nav)
+        buttons.append([{"text": "🔙 Back to Countries", "callback_data": "menu:countries"}])
+        return {"inline_keyboard": buttons}
 
     def get_basin_stations_keyboard(self, basin_key: str) -> Dict[str, Any]:
         """Lists provinces for a selected hydrological basin."""
@@ -376,9 +458,9 @@ class InteractiveTelegramBot:
         elif text.startswith("/hazards") or text.startswith("/nearby") or text in ["⚠️ Nearby Hazards", "hazards"]:
             self.handle_hazards_command(chat_id)
 
-        elif text.startswith("/location") or text.startswith("/provinces") or text in ["🗺️ Choose Station", "🗺️ ជ្រើសរើសខេត្ត (Choose Province)", "provinces", "location", "stations"]:
-            msg = "📍 <b>Select a region, or tap 📍 Share My Location for the nearest station:</b>"
-            self.send_message(chat_id, msg, reply_markup=self.get_basins_inline_keyboard())
+        elif text.startswith("/countries") or text.startswith("/location") or text.startswith("/provinces") or text in ["🗺️ Choose Station", "🗺️ ជ្រើសរើសខេត្ត (Choose Province)", "provinces", "location", "stations", "countries"]:
+            msg = "🌏 <b>Choose a country</b> to browse its monitoring stations, or tap 📍 Share My Location for the nearest one:"
+            self.send_message(chat_id, msg, reply_markup=self.get_countries_keyboard())
 
         elif text.startswith("/alerts") or text in ["🚨 Active Alerts", "🚨 ស្ថានភាពអាសន្ន (Active Alerts)"]:
             self.handle_alerts_command(chat_id)
@@ -420,9 +502,29 @@ class InteractiveTelegramBot:
 
         self.answer_callback_query(callback_id)
 
-        if data == "menu:basins":
-            msg = "📍 <b>សូមជ្រើសរើសតំបន់ ឬខេត្តរបស់អ្នក៖</b>\n<i>Please select your hydrological region:</i>"
-            self.edit_message_text(chat_id, msg_id, msg, reply_markup=self.get_basins_inline_keyboard())
+        if data == "menu:countries" or data == "menu:basins":
+            msg = "🌏 <b>Choose a country</b> to browse its monitoring stations:"
+            self.edit_message_text(chat_id, msg_id, msg, reply_markup=self.get_countries_keyboard())
+
+        elif data.startswith("cpage:"):
+            page = int(data.split(":", 1)[1]) if data.split(":", 1)[1].isdigit() else 0
+            self.edit_message_text(chat_id, msg_id, "🌏 <b>Choose a country:</b>", reply_markup=self.get_countries_keyboard(page))
+
+        elif data.startswith("ctry:"):
+            parts = data.split(":")
+            code = parts[1]
+            page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
+            name = COUNTRY_NAMES.get(code, code)
+            msg = f"{country_flag(code)} <b>{name}</b>\nSelect a monitoring station:"
+            self.edit_message_text(chat_id, msg_id, msg, reply_markup=self.get_country_stations_keyboard(code, page))
+
+        elif data.startswith("cstn:"):
+            parts = data.split(":")
+            code = parts[1]
+            page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
+            name = COUNTRY_NAMES.get(code, code)
+            msg = f"{country_flag(code)} <b>{name}</b>\nSelect a monitoring station:"
+            self.edit_message_text(chat_id, msg_id, msg, reply_markup=self.get_country_stations_keyboard(code, page))
 
         elif data.startswith("basin:"):
             basin_key = data.split(":", 1)[1]
